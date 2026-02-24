@@ -14,18 +14,38 @@ connectDB();
 const app = express();
 const server = http.createServer(app);
 
+// allow multiple frontend origins via FRONTEND_URLS (comma-separated) or FRONTEND_URL
+const allowedOrigins = (
+  process.env.FRONTEND_URLS ||
+  process.env.FRONTEND_URL ||
+  "http://localhost:3000"
+)
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 // Socket.io setup for real-time chat/call
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: (origin, callback) => {
+      // allow requests with no origin (e.g. server-to-server or CLI)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error("CORS origin denied"), false);
+    },
     methods: ["GET", "POST"],
+    credentials: true,
   },
 });
 
 // Middleware
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error("CORS origin denied"), false);
+    },
     credentials: true,
   })
 );
